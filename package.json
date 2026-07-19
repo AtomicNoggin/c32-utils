@@ -1,18 +1,24 @@
 {
-  "name": "simple-ulid",
+  "name": "c32-utils",
   "version": "1.0.0",
-  "description": "a fully encpaulated library for generating ulid values and do basic Crockford32 encoding and decoding",
+  "description": "a lightweight, zero dependancy JS library for doing basic Crockford32 string generation, encoding and decoding",
   "keywords": [
+    "JavaScript",
     "ulid",
     "crockford32",
     "encoding",
-    "decoding"
+    "decoding",
+    "nonce"
   ],
-  "license": "ISC",
+  "license": "Apache-2.0",
   "author": "Patrick Denny",
-  "type": "commonjs",
-  "main": "ulid.js",
+  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1"
   }
 }
