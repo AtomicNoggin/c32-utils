@@ -294,13 +294,13 @@ export const toText = (crockford, options = {}, textOptions = {}) => {
  * @returns {string} the randomized characters
  */
 export const getRandomChars = (length = 8) => {
-  length = +length;
+  length = Number(length);
   if (length !== length) {
     length = 8;
   }
-  const chars = [];
+  let chars = [];
   while (chars.length < length) {
-    chars.concat(bigintToChars(get40RandomBits()));
+    chars = chars.concat(bigintToChars(get40RandomBits()));
   }
   return chars.slice(0, length).join("");
 };
@@ -350,7 +350,7 @@ export const getUlid = (options = {}, strictImplementation = undefined) => {
   };
   if (timestamp) {
     now = Number(timestamp);
-    if (now !== now || now < 0 || now !== Math.floor(now)) {
+    if (now !== now || now !== Math.floor(now)) {
       throw TypeError(
         `provided timestamp '${timestamp}' could not be coerced to a unigned integer`,
       );
@@ -391,7 +391,7 @@ export const getUlid = (options = {}, strictImplementation = undefined) => {
     }
   }
   return (
-    bigintToChars(lastTS).join("").padStart(10, "0") +
+    bigintToChars(BigInt(lastTS)).join("").padStart(10, "0") +
     bigintToChars(lastR).join("").padStart(16, "0")
   );
 };
