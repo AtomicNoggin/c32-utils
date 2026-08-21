@@ -84,7 +84,7 @@ const fromC32 = C32.toUint8('04HMASHU',{withChecksum:true}) // throws RangeError
 
 fromBigInt 
 
-Takes in a a BigInt, serialize it into bits, and encode it as a Crockford32 value
+Takes in a a BigInt, serialize it into a bigendian array bits, and encode it as a Crockford32 value
  * Uses the same options as fromUint8
 
  toText

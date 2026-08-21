@@ -1,7 +1,7 @@
 {
   "name": "c32-utils",
   "version": "1.0.0",
-  "description": "a lightweight, zero dependancy JS library for doing basic Crockford32 string generation, encoding and decoding",
+  "description": "A lightweight, zero dependancy JS library for doing basic Crockford32 string generation, encoding and decoding",
   "keywords": [
     "JavaScript",
     "ulid",
@@ -15,10 +15,6 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
-  },
-  "devDependencies": {
-    "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1"
+    "test": "node --test"
   }
 }
