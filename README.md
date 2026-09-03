@@ -2,7 +2,7 @@
 
 A lightweight, zero dependancy, vanilla JS library for doing basic [Crockford32](href=https://www.crockford.com/base32.html) string generation, encoding and decoding.
 
-Crockford32 strings can be encoded from , and decoded to  
+Crockford32 strings can be encoded from and decoded to  
  - BigInt values, 
  - Uint8Array objects,
  - Text strings (iternally using TextEncoder & TextDecoder), 
@@ -17,7 +17,7 @@ Utility methods are also provided to
 
 ## sanitize
 
-Can be used to manually clean-up a Crockford value passed in by a user.  It converts the string to to uppercase, removes hyphens and does the prescibed character replacements (0 for o, 1 for i & l). For convienience any whitespace used to break up the string is also removed. After that it ensures that no non-valid charcters exist, throwing a RangeError if they do, or returning the santized string.
+Can be used to manually clean-up a Crockford value passed in by a user.  It converts the string to uppercase, removes hyphens and does the prescibed character replacements (0 for o, 1 for i & l). For convienience any whitespace used to break up the string is also removed. After that it ensures that no non-valid charcters exist, throwing a RangeError if they do, or returning the santized string.
 
 If you are expecting input values from a server or posted message, you may want to use the strictMatching option, since machines shouldn't make typos.
 This will only trim outer whitespace, and do no other 'cleanup', meaning it will fail unless it exactly matches the original encoding output.
@@ -317,7 +317,7 @@ let parts = C32.ulidToParts(ulid4, {isStrict: true}); // {timestamp: 17839707904
 let parts = C32.ulidToParts(ulid4, true); // {timestamp: 1783970790418, salt: 407024439748536575936204n, isStrict: true}
 ```
 ### NOTE
-If a timestamp is passed in to getULID without an accompanying random seed value, a new seed value is generated on first call, then incremented on subsiquent calls with ther same timestamp. This will most likely cause ulids to be generated out of order.
+If a timestamp is passed in to getULID without an accompanying random seed value, a new seed value is generated on first call, then incremented on subsiquent calls with the same timestamp. This will most likely cause the initial ulid to be generated out of order.
 
 As stated above, this implementation differs from the official specification in one important way:
 Subsiquent calls using the same timestamp are incremented by another 40 bits of randomness, instead of the standard 1 bit

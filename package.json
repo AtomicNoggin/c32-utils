@@ -1,6 +1,10 @@
 {
   "name": "c32-utils",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AtomicNoggin/c32-utils.git"
+  },
   "description": "A lightweight, zero dependancy JS library for doing basic Crockford32 string generation, encoding and decoding",
   "keywords": [
     "JavaScript",
@@ -13,7 +17,18 @@
   "license": "Apache-2.0",
   "author": "Patrick Denny",
   "type": "module",
-  "main": "index.js",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "node --test"
   }
