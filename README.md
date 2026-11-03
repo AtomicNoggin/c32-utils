@@ -53,14 +53,18 @@ Methods for converting a Crockford32 encoded string to and From a Uint8Array
  * If the strictMatching option is true,  
  * If the withChecksum option is true, the last charater of the string will be removed and compared to the encoded value modulo 37 result, to o detect wrong-symbol * and transposed-symbol errors.
 
-__decode__ is a synonym for toUint8,
+### decode 
+
+Decode is a synonym for toUint8,
 
 ### fromUInt8 
 
 Takes in a Uint8Array, serialize it into bits (8 per entry), and encode it as a Crockford32 value, where each digit represents 5 bits of the serialized bits.
 * If withChecksum option is true, add a check symbol to the end of the string that can be used to detect wrong-symbol and transposed-symbol errors.
 
-__encode__ is a synonym for fromUint8
+### encode 
+
+Encode is a synonym for fromUint8
 
 ### Usage 
 ```js
@@ -130,25 +134,42 @@ const textToC32 = C32.fromText('The quick brown fox jumps over the lazy dog.')
  // 'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'
 
 // this is functionally equivilent to 
-const withEncoder = C32.fromUint8(new Encoder().encode('The quick brown dog jumped over the lazy dog.'));
+const withEncoder = C32.fromUint8(
+  new Encoder().encode('The quick brown dog jumped over the lazy dog.')
+);
 
-const textFromC32 = C32.toText('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG')
+const textFromC32 = C32.toText(
+  'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'
+);
  // 'The quick brown fox jumps over the lazy dog.'
 
 // this is functionally equivilent to 
-const withDecoder = new TextDecoder(textOptions.lab).decode(C32.toUint8('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'));
+const withDecoder = new TextDecoder(textOptions.lab)
+  .decode(
+    C32.toUint8(
+      'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'
+    )
+  );
 
 // toText can take in options for both C32 and the TextEncoder:
 const options = {strictMatching:false};
 const textOptions = {label:"utf-8", fatal:true, ignoreBOM: false}
-const textFromC32 = C32.toText('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG', options, textOptions)
+const textFromC32 = C32.toText(
+  'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG', 
+  options, textOptions
+)
  // 'The quick brown fox jumps over the lazy dog.'
 
 // this is functionally equivilent to 
 const options = {strictMatching:false};
 const label = "utf-8";
 const textOptions = {fatal:true, ignoreBOM: false};
-const withDecoder = new TextDecoder(label, textOptions).decode(C32.toUint8('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG', options));
+const withDecoder = new TextDecoder(label, textOptions)
+  .decode(
+    C32.toUint8(
+      'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG', options
+    )
+  );
 ```
 
 ## fromHex & toHex
@@ -175,7 +196,7 @@ const hexToC32 = C32.fromHex('aabbccddeeff');
 const withEncoder = C32.fromUint8(Uint8Array.fromHex('aabbccddeeff'));
 // 'NAXWSQFEZW'
 
-const hexFromC32 = C32.toText('NAXWSQFEZW');
+const hexFromC32 = C32.toHex('NAXWSQFEZW');
  //'aabbccddeeff'
 
 // this is functionally equivilent to 
@@ -211,23 +232,27 @@ const withEncoder = C32.fromUint8(Uint8Array.fromBase64(base64));
 // fromBase64 can take in options for both C32 and fromBase64:
 const options = {strictMatching:false};
 const base64Options = {alphabet:"base64", lastChunkHandling: "loose"};
-const textFromC32 = C32.fromBase64(base64string, options, textOptions)
+const textFromC32 = C32.fromBase64(base64string, options, base64Options)
 
 // this is functionally equivilent to 
-const withEncoder = C32.toUint8(Uint8Array.fromHex(base64string, pase64Options), options);
+const withEncoder = C32.toUint8(Uint8Array.fromHex(base64string, base64Options), options);
 
-const base64FromC32 = C32.toText('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG');
+const base64FromC32 = C32.toBase64(
+  'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'
+);
 // 'dGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb2ZlciB0aGUgbGF6eSBkb2cu'
 const string = atob(base64FromC32)
  // 'The quick brown fox jumps over the lazy dog.'
 
 // this is functionally equivilent to 
-const withDecoder = C32.toUint8('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG').toBase64();
+const withDecoder = C32.toUint8(
+  'AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG'
+).toBase64();
 
 // fromBase64 can take in options for both C32 and toBase64:
 const options = {strictMatching:false};
 const base64Options = {alphabet:"base64", omitPadding: false};
-const textFromC32 = C32.fromBase64(crockfordString, options, textOptions)
+const textFromC32 = C32.fromBase64(crockfordString, options, base64Options)
 
 // this is functionally equivilent to 
 const withEncoder = C32.fromUint8(crockfordString, options).toBase64(base64Options);
@@ -266,7 +291,8 @@ where
 t is a milisecond precision Unix timestamp (10 characters)
 r is cryptographically secure randomness (16 characters, or 80 bits)
 
-getUlid
+### getUlid
+
 Generate 26 digit Crockford32 ULID. If repeated subsiquent calls happen with the same millisecond, the previous random value is incremented to ensure monotonic values are produced
 
 If doing batch jobs, it takes in an options argument
@@ -281,13 +307,11 @@ If doing batch jobs, it takes in an options argument
  * if value is boolean, used as the value for isStrict
 an optional second boolean argument can be used as isStrict if not already passed in by the options argument
 
-ulidToParts
-Takes in a valid Crockford32 Ulid and return the base elements as an object that can be passed to getUlid as options
-an optional second argument can be used to pass through an isStrict value
-an optional third argument can be used to pass through a ttl value. Negative values are clamped to 0 (no caching). Values above 3600000 (1 hour) are capped. Non-numeric values are ignored.
+### ulidToParts
 
-setDefaultTtl
-Sets the default ttl used by getUlid when no ttl option is provided. This controls how long the previous timestamp/random pair is cached for monotonic generation. Negative values are clamped to 0 (no caching). Values above 3600000 (1 hour) are capped. Non-numeric values are ignored.
+Takes in a valid Crockford32 ULID and returns the base elements as an object that can be passed to getUlid as options
+ - an optional second argument can be used to pass through an isStrict value
+ - an optional third argument can be used to pass through a ttl value. Negative values are clamped to 0 (no caching). Values above 3600000 (1 hour) are capped. Non-numeric values are ignored.
 
 ### Usage
 ```js
@@ -309,7 +333,7 @@ const ulidNext = C32.getUlid(); // "01KXEF3Z0K2JGD6BR5Y25W4P2F"
 
 // use the ttl option to control how long the timestamp/random pair is cached
 // useful for batch jobs that may take longer than the default 5 seconds
-const ulidBatch1 = C32.getUlid({ timestamp:{timestamp:1783970790418},  ttl: 10000 }); 
+const ulidBatch1 = C32.getUlid({timestamp:1783970790418,  ttl: 10000 }); 
 
 // or set a new default ttl for all subsequent calls
 C32.defaultTtl = 30000; // 30 seconds
@@ -358,7 +382,6 @@ During multiple stress tests I was able to create upwards of 5 million unique va
 
 However, you can use a isStrict flag when generating ULID, if you prefer to stick to the standard.
 
-
 ## ULID120 Format
 
 ULID120 is an extension of the standard ULID format that appends an additional 8 characters (40 bits) of cryptographically secure randomness to the standard 26-character ULID.
@@ -402,8 +425,6 @@ ULID120 provides additional entropy (120 bits total instead of 80 bits) which re
 ULID120 is not part of the official ULID specification. It's an extension specific to this library for cases where additional entropy is needed.
 
 ## C32.defaultTtl, C32.defaultIsStrict & C32.defaultAsUlid120
-
-Utility functions for managing ULID caching and default time to live.
 
 ### defaultTtl
 
