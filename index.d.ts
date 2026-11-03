@@ -19,18 +19,19 @@ export interface TextDecoderOptions {
   ignoreBOM?: boolean;
 }
 
+export interface CacheActionRecord {
+ action: "set" | "delete";
+  timestamp: number;
+  salt: bigint;
+  ttl?: number;
+}
+
 export interface UlidOptions {
   isStrict?: boolean;
   timestamp?: number;
   salt?: bigint;
-}
-
-export type UlidInput = UlidOptions | string | boolean;
-
-export interface UlidParts {
-  timestamp: number;
-  salt: bigint;
-  isStrict?: boolean;
+  ttl?: number;
+  extra?: boolean | bigint;
 }
 
 export const sanitize: (
@@ -98,18 +99,44 @@ export const toText: (
 export const getRandomChars: (length?: number) => string;
 
 export function getUlid(
-  options?: UlidOptions,
   strictImplementation?: boolean,
+  timeToLive?: number,
+  asUlid120?: boolean
 ): string;
 export function getUlid(
-  options: string | boolean,
+  ulid: string | boolean,
   strictImplementation?: boolean,
+  timeToLive?: number,
+  asUlid120?: boolean
+): string;
+export function getUlid(
+  options: UlidOptions
 ): string;
 
 export function ulidToParts(
   ulid: string,
-  options?: boolean | { isStrict?: boolean },
-): UlidParts;
+  options?: boolean | { isStrict?: boolean, ttl?: number, extra?: boolean | bigint }
+): UlidOptions;
+export function ulidToParts(
+  ulid: string,
+  strictImplementation?: boolean,
+  timeToLive?: number,
+  asUlid120?: boolean
+): ulidOptions
+
+export const prefillCache: (count?: number) => void;
+export const setCacheValue: (timestamp: number, salt: bigint, ttl: number) => void;
+export const getCacheValue: (timestamp: number) => bigint | undefined;
+export const hasCacheValue: (timestamp: number) => boolean;
+export const deleteCacheValue: (timestamp: number) => void;
+export const clearCache: () => void;
+export const observeMethod: (actions: CacheActionRecord[]) => void;
+export const observeCacheUpdates: (method: observeMethod) => void;
+export const flushCacheUpdates: () => CacheActionRecord[];
+export const getObserveMethod: () => Function;
+export const unobserveCacheUpdates: () => void;
+export const setDefaultTtl: (ttl: number) => void;
+export const getDefaultTtl: () => number;
 
 export interface C32Api {
   sanitize: typeof sanitize;
@@ -128,6 +155,19 @@ export interface C32Api {
   getRandomChars: typeof getRandomChars;
   getUlid: typeof getUlid;
   ulidToParts: typeof ulidToParts;
+  prefillCache: typeof prefillCache;
+  setCacheValue: typeof setCacheValue;
+  getCacheValue: typeof getCacheValue;
+  hasCacheValue: typeof hasCacheValue;
+  deleteCacheValue: typeof deleteCacheValue;
+  clearCache: typeof clearCache;
+  observeCacheUpdates: typeof observeCacheUpdates;
+  flushCacheUpdates: typeof flushCacheUpdates;
+  getObserveMethod: typeof getObserveMethod;
+  unobserveCacheUpdates: typeof unobserveCacheUpdates;
+  defaultTtl: number;
+  defaultIsStrict: boolean;
+  defaultAsUlid120: boolean;
 }
 
 export const C32: C32Api;

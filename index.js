@@ -298,20 +298,79 @@ export const getRandomChars = (length = 8) => {
   if (length !== length) {
     length = 8;
   }
-  let chars = [];
-  while (chars.length < length) {
-    chars = chars.concat(bigintToChars(get40RandomBits()));
-  }
-  return chars.slice(0, length).join("");
+  let chars = "";
+  do {
+    chars += bigintToChars(get40RandomBits()).join("").padStart(8,"0");
+  } while (chars.length < length);
+  return chars.slice(0, length);
 };
 
 const maxR = 0xffffffffffffffffffffn;
 const maxTime = 0xffffffffffff;
+let _defaultTtl = 5000;
+let _defaultIsStrict = false;
+let _defaultAsUlid120 = false;
+let lastTS = 0;
+let  lastR = 0n;  
 
-let lastTS = 0,
-  lastR = 0n;
+let observeMethod = null;
+let observeRecords = [];
 
-/**  @typedef {{isStrict?: boolean, timestamp?: number, salt?: bigint }} UlidOptions */  
+const microTaskAction = () => {
+  if (observeRecords.length) {
+    observeMethod([...observeRecords]);
+    observeRecords = [];
+  }
+}
+
+const clampTtl = (ttl) => Math.max(0, Math.min(ttl, 3600000));
+
+const cache = {
+  data: new Map(),
+  set: (key, value, ttl = _defaultTtl) => {
+    if (cache.data.has(key)) {
+      clearTimeout(cache.data.get(key).timer);
+    }
+    ttl = clampTtl(ttl);
+    // don't cache if ttl is 0
+    if (ttl) {
+      cache.data.set(key, {
+        value: value, 
+        timer: setTimeout(() => {
+          cache.delete(key);
+        }, clampTtl(ttl))
+      });
+      if (observeMethod) {
+        observeRecords.push({action: "set", timestamp: key, salt: value, ttl: ttl});
+        queueMicrotask(microTaskAction);
+      }
+    }
+  },
+  get: key => cache.data.get(key)?.value,
+  has: key => cache.data.has(key),
+  delete: key => {
+    if (cache.data.has(key)) {
+      const {timer,value} = cache.data.get(key);
+      clearTimeout(timer)
+      if (observeMethod) {
+        observeRecords.push({action: "delete", timestamp: key, salt: value, ttl: undefined});
+        queueMicrotask(microTaskAction);
+      }
+    }
+    return cache.data.delete(key)
+  },
+  clear: () => {
+    if (observeMethod && cache.data.size) {
+      observeRecords = observeRecords.concat(cache.data.entries().map(([key,value]) => ({action: "delete", timestamp: key, salt: value, ttl: undefined})));
+      queueMicrotask(microTaskAction);
+    }
+    cache.data.clear()
+  },
+}
+
+
+
+/**  @typedef {{isStrict?: boolean, ttl?: number, timestamp?: number, salt?: bigint }} UlidOptions */  
 /**
  * Generate a valid, easily indexable 26 digit Crockford32 ULID where the first 10 digits represent a milisecond
  * precision Unix timestamp and the remaining 16 digits are 80 bits of randomness.
@@ -322,9 +381,16 @@ let lastTS = 0,
  *     - isStrict : optional. Defaults to false.
  *          If true, increments previous random value by 1 for multiple batch calls that use the same timestamp
  *          If false, increments previous random value by an additional 40 bits of randomness, increasing entropy between values
+ *     - ttl: optional cache time to live in milliseconds for the timestamp
+ *     - extra: optional boolean value used to determine if extra 8 chars of randomness are added
  *     if value is String, parsed as a ULID and broken into timestamp and seed,
  *     if value is boolean, used as the value for isStrict
- * @param  {boolean} strictImplementation optional. used as isStrict value if not already passed in by the options argument
+ * @param  {boolean | number} strictImplementation optional. used as isStrict value if not already passed in by the options argument
+ *     if options is boolean and strictImplementation is number, it's used as TTL
+ * @param  {number} timeToLive optional TTL for the ULID
+ *     if not provided, or not a number, default TTL is used
+ *     negative values are treated as 0 and values above 3600000 are capped
+ * @param {boolean} asUlid120 optional boolean used to determine if an extra 8 chars of randomness are added
  * @returns {string} a valid ULID
  * @throws {TypeError} if provided timestamp is not an unsigned int
  * @throws {TypeError} if provided salt could not be coersed to a BigInt
@@ -332,35 +398,51 @@ let lastTS = 0,
  * @throws {RangeError} if provided seed or incremented random value exceeds maximum alowable value
  * @throws {RangeError} if provied ulid string is the improper length, or contains a character that is not a valid Crockford32 digit
  */
-export const getUlid = (options = {}, strictImplementation = undefined) => {
+export const getUlid = (options = {}, strictImplementation = _defaultIsStrict, timeToLive = _defaultTtl, asUlid120 = _defaultAsUlid120) => {
   let now = Date.now();
   if (typeof options === "string") {
-    options = ulidToParts(options);
+    // parse string as ULID parts
+    options = ulidToParts(options,strictImplementation,timeToLive,asUlid120);
   } else if (
-    typeof options === "boolean" &&
-    typeof strictImplementation === "undefined"
+    typeof options === "boolean"
   ) {
+    // shift all other args down 
+    asUlid120 = asUlid120 ?? timeToLive ?? false;
+    timeToLive = timeToLive ?? strictImplementation;
     strictImplementation = options;
     options = {};
   }
+  else if (options.ttl) {
+    timeToLive = options.ttl;
+  }
+  // ensure timeToLive is a number
+  if (timeToLive == null || Number(timeToLive) !== Number(timeToLive)) {
+    timeToLive = _defaultTtl;
+  } 
+  timeToLive = clampTtl(timeToLive);
+  // if extra is set (including 0n), replace it with random chars
+  options.extra = ([null,undefined, false].includes(options.extra ?? asUlid120 ?? false) ? "" : getRandomChars());
   // get passed in options, if any.
-  const { timestamp, salt, isStrict } = {
+  const { timestamp, salt, isStrict, ttl, extra } = {
     isStrict: !!strictImplementation,
+    ttl: timeToLive,
     ...Object(options),
   };
-  if (timestamp) {
+  timestamp === 1000 && console.log(timestamp, salt, isStrict, options);
+  // ensure a timestamp of 0 still works
+  if (![null,undefined,false].includes(timestamp ?? false)) {
     now = Number(timestamp);
     if (now !== now || now !== Math.floor(now)) {
       throw TypeError(
-        `provided timestamp '${timestamp}' could not be coerced to a unigned integer`,
+        `provided timestamp '${timestamp}' could not be coerced to an integer`,
       );
     } else if (now > maxTime) {
       throw RangeError(
         `provided timestamp '${now}' exceeds max value for a timestamp`,
       );
     }
-    lastR = now;
-    if (salt) {
+    // ensure a salt of 0n still works
+    if (![null,undefined,false].includes(salt ?? false)) {
       try {
         lastR = BigInt(salt);
       } catch (e) {
@@ -376,8 +458,14 @@ export const getUlid = (options = {}, strictImplementation = undefined) => {
       // ensure we don't regenerate lastR;
       lastTS = now;
     }
+    else if (cache.has(now)) {
+      lastR = cache.get(now);
+      // ensure we don't regenerate lastR;
+      lastTS = now;
+    }
   }
-  if (now !== lastTS || !lastR) {
+  timestamp === 1000 && console.log(lastTS, lastR, isStrict, options);
+  if (now !== lastTS || [null,undefined,false].includes(lastR ?? false)) {
     lastTS = now;
     lastR = (get40RandomBits() << 40n) + get40RandomBits();
   } else {
@@ -390,34 +478,175 @@ export const getUlid = (options = {}, strictImplementation = undefined) => {
       );
     }
   }
-  return (
-    bigintToChars(BigInt(lastTS)).join("").padStart(10, "0") +
-    bigintToChars(lastR).join("").padStart(16, "0")
-  );
+  if (ttl) {
+    cache.set(lastTS, lastR, ttl);
+  }
+  let result = bigintToChars(BigInt(lastTS)).join("").padStart(10, "0") +
+    bigintToChars(lastR).join("").padStart(16, "0") + extra;
+  return result;
 };
-/** @typedef {{isStrict?: boolean}} IsStrictPassthrough */
+/** @typedef {{isStrict?: boolean, ttl?: number, extra?: boolean}} ParametersPassthrough */
 /**
  * Take in a valid Crockford32 ULID and return the base elements: time 
  * @param {String} ulid
- * @param {IsStrictPassthrough|boolean} options optioanl value for isStrict
- * @returns {UlidOptions} containing the entries timestamp as a number, and seed as a BigInt. optioanlly passes isStrict if present in options
+ * @param {boolean|ParametersPassthrough} options optional value for isStrict and possibly other options
+ * @param {number} ttl optional time to live for cache if not set in options
+ * @param {boolean} extra optional flag for ULID120 if not set in options
+ * @returns {UlidOptions} containing the entries timestamp as a number, and seed as a BigInt. optionally passes isStrict, ttl, and/or extra if passed in
  * @throws {RangeError} if ulid is the improper length, or contains a character that is not a valid Crockford32 digit
  */
-export const ulidToParts = (ulid, options = {}) => {
-  if (String(ulid).length !== 26) {
+export const ulidToParts = (ulid, options = {}, ttl = undefined, extra = undefined) => {
+  if (!ulid || typeof ulid !== "string") {
+    throw TypeError("ulid must be a string");
+  }
+  // handle a ULID120
+  else if (ulid.length === 34) {
+    extra = charsToBigint(sanitize(ulid.slice(-8)).split(""));
+    ulid = ulid.slice(0, 26);
+  }
+  else if (ulid.length !== 26) {
     throw RangeError(`provided value '${ulid}' is of improper length`);
   }
   if (typeof options === "boolean") {
     options = { isStrict: options };
   }
+  else if (typeof options !== "object") {
+    options = {};
+  }
+  if (Object(options).hasOwnProperty("extra")) {
+    extra = options.extra;
+  }
+  if (Object(options).hasOwnProperty("ttl")) {
+    ttl = options.ttl;
+  }
+  if (typeof ttl === "number" && Number(ttl) === Number(ttl)) {
+    options.ttl = ttl;
+  }
   ulid = sanitize(ulid);
   const addIsStrict = Object(options).hasOwnProperty("isStrict"),
+    addTtl = Object(options).hasOwnProperty("ttl"),
     timestamp = Number(charsToBigint(ulid.slice(0, 10).split(""))),
     salt = charsToBigint(ulid.slice(10).split(""));
-  return addIsStrict
-    ? { timestamp, salt, isStrict: !!options.isStrict }
-    : { timestamp, salt };
+  const result = { timestamp, salt };
+  if (!!extra) result.extra = extra;
+  if (addIsStrict) result.isStrict = !!options.isStrict;
+  if (addTtl) result.ttl = options.ttl;
+  return result;
 };
+/** activate cache observing and listen for cache updates
+ * @param {Function} method callback for updates
+ * @returns {void} 
+ * @example observeCacheUpdates((records) => for (const record of records) console.log(record));
+ */
+export const observeCacheUpdates = (method) => {
+  observeMethod = method;
+}
+/** retrieve and clear cache update records, if any. records are only generated if observe is active
+ * @returns {Array} list of updates
+ */
+export const flushCacheUpdates = () => {
+  const copy = [...observeRecords];
+  observeRecords = [];
+  return copy;
+}
+/** get current observe method 
+ * @returns {Function} current observe method
+*/
+export const getObserveMethod = () => observeMethod;
+
+/** stop observing cache updates */
+export const unobserveCacheUpdates = () => {
+  observeMethod = null;
+}
+/** prefill cache with future random values.
+ *  * will not overwrite existing entries
+ *  * automatically notifies the observeMethod if set. 
+ *  * does nothing if cache is disabled (defaultTtl == 0).
+ *  
+ * @param {number} count number of entries to add for each millisecond beyond now.
+ * @returns {void} 
+ */
+export const prefillCache = (count = 1000) => {
+  // if cache is disabled, skip
+  if (!_defaultTtl) return;
+  let ts = Date.now(), i = -1;
+  while(++i < count) {
+    if (!cache.has(ts)) {
+      cache.set(ts++, (get40RandomBits() << 40n) + get40RandomBits(), _defaultTtl+i);
+    }
+  }
+  // immediately notify if observing
+  if (observeMethod) {
+    observeMethod(flushCacheUpdates());
+  }
+}
+/** Set a cache salt for a timestamp
+ * @param {number} timestamp the timestamp key
+ * @param {bigint} salt the salt value
+ * @param {number} timeToLive cache duration in ms
+ */
+export const setCacheValue = (timestamp, salt, timeToLive) => {
+  cache.set(timestamp, salt, timeToLive);
+};
+
+/** Get a cached salt value by timestamp  
+ * @param {number} timestamp the timestamp key
+ * @returns {bigint|undefined} the cached salt if present
+ */
+export const getCacheValue = (timestamp) => cache.get(timestamp);
+
+/** Check if cache has a value for timestamp
+ * @param {number} timestamp
+ * @returns {boolean} whether a salt value exists
+ */
+export const hasCacheValue = (timestamp) => cache.has(timestamp);
+
+/** Delete a cache value by timestamp
+ * @param {number} timestamp
+ * @returns {boolean} whether deletion was successful
+ */
+export const deleteCacheValue = (timestamp) => cache.delete(timestamp);
+
+/** Clears all cache entries */
+export const clearCache = () => cache.clear();
+
+/**
+ * Set the default cache time to live for getUlid
+ * @param {*} ttl 
+ */
+export const setDefaultTtl = (timeToLive) => {
+  // ensure timeToLive is a number
+  if (timeToLive === null || Number(timeToLive) !== Number(timeToLive)) {
+    return;
+  } 
+  _defaultTtl = clampTtl(timeToLive);
+};
+
+/**
+ * Get the default TTL for cache
+ * @returns {number} the default cache time to live
+ */
+export const getDefaultTtl = () => _defaultTtl;
+
+/** set default isStrict setting for generating ULIDs 
+ * @param {boolean} isStrict
+*/
+export const setDefaultIsStrict = (isStrict) => {
+  _defaultIsStrict = !!isStrict;
+};
+
+/** Get default isStrict setting
+ * @returns {boolean} the default isStrict value
+*/
+export const getDefaultIsStrict = () => _defaultIsStrict;
+
+/** Set default asUlid120 setting for generating ULIDs
+ * @param {boolean} asUlid120
+ */
+export const setDefaultAsUlid120 = (asUlid120) => _defaultAsUlid120 = !!asUlid120;
+
+/** Get default asUlid120 setting */
+export const getDefaultAsUlid120 = () => _defaultAsUlid120;
 
 export const C32 = {
   sanitize,
@@ -436,5 +665,34 @@ export const C32 = {
   getRandomChars,
   getUlid,
   ulidToParts,
+  prefillCache,
+  setCacheValue,
+  getCacheValue,
+  hasCacheValue,
+  deleteCacheValue,
+  clearCache,
+  observeCacheUpdates,
+  flushCacheUpdates,
+  getObserveMethod,
+  unobserveCacheUpdates,
 };
+Object.defineProperties(
+  C32, {
+    defaultTtl: {
+      get () { return getDefaultTtl() },
+      set (v) { setDefaultTtl(v); },
+      enumerable: true
+    },
+    defaultIsStrict: {
+      get () { return getDefaultIsStrict() },
+      set (v) { setDefaultIsStrict(v); },
+      enumerable: true  
+    },
+    defaultAsUlid120: {
+      get () { return getDefaultAsUlid120() },
+      set (v) { setDefaultAsUlid120(v); },
+      enumerable: true
+    }
+  } 
+)
 export default C32;

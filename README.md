@@ -12,8 +12,9 @@ Crockford32 strings can be encoded from and decoded to
 Utility methods are also provided to 
 - sanitize & verify Crockford32 strings, per the decoding spec.
 - generate random Crockford32 strings of arbitrary length,
-- genreate Ulid key string
-- parse ULID jey strings to bas parts
+- generate ULID key strings, including a longer ULID120 format
+- parse ULID key strings to base parts
+- manage timestamp caching for batch ULID generation
 
 ## sanitize
 
@@ -44,20 +45,22 @@ Checksum values are only checked for character value correctness, and the actual
 
 ## fromUint8, toUint8, encode & decode
 
-fromUInt8 
+Methods for converting a Crockford32 encoded string to and From a Uint8Array
 
-Takes in a Uint8Array, serialize it into bits (8 per entry), and encode it as a Crockford32 value, where each digit represents 5 bits of the serialized bits.
-* If withChecksum option is true, add a check symbol to the end of the string that can be used to detect wrong-symbol and transposed-symbol errors.
-
-encode is a synonym for fromUint8
-
-toUint8
+### toUint8
 
  Take in a string representing a Crockford32 encoded value, sanitize it, then serialize it into bits (5 per character) and slice it into 8 bit (1 byte) entries in a Uint8Array
  * If the strictMatching option is true,  
  * If the withChecksum option is true, the last charater of the string will be removed and compared to the encoded value modulo 37 result, to o detect wrong-symbol * and transposed-symbol errors.
 
-decode is a synonym for toUint8,
+__decode__ is a synonym for toUint8,
+
+### fromUInt8 
+
+Takes in a Uint8Array, serialize it into bits (8 per entry), and encode it as a Crockford32 value, where each digit represents 5 bits of the serialized bits.
+* If withChecksum option is true, add a check symbol to the end of the string that can be used to detect wrong-symbol and transposed-symbol errors.
+
+__encode__ is a synonym for fromUint8
 
 ### Usage 
 ```js
@@ -82,15 +85,18 @@ const fromC32 = C32.toUint8('04HMASHU',{withChecksum:true}) // throws RangeError
 
 ## fromBigInt & toBigInt
 
-fromBigInt 
+Methods for converting a Crockford32 encoded string to and from a BigInt
 
-Takes in a a BigInt, serialize it into a bigendian array bits, and encode it as a Crockford32 value
- * Uses the same options as fromUint8
 
- toText
+### toBigInt
 
  Takes in a Crockford32 encoded value and decodes it into a BigInt
  * Uses the same options as toUint8
+
+### fromBigInt 
+
+Takes in a a BigInt, serialize it into a bigendian array bits, and encode it as a Crockford32 value
+ * Uses the same options as fromUint8
 
 ### Usage 
 ```js 
@@ -104,17 +110,17 @@ const fromC32 = C32.toBigInt('04hmasw9'); // 0x123456789n
 ```
 
 ## fromText & toText
-Convenience methods that wrap aroiund TextEncoder.encode() and TextDecoder.decode()
+Convenience methods that wrap around TextEncoder.encode() and TextDecoder.decode()
 
-fromText 
+### fromText 
 
 Takes in a utf-8 string, decodes it into bytes, and encodes it as a Crockford32 value
  * Uses the same options as fromUint8
 
- toText
+### toText
 
  Takes in a Crockford32 encoded value, decodes it into bytes, and encodes them into a utf-8 string
- * Uses the same options as toUint8
+ * Uses the same options as toUint8, plus an optional textOptions object to pass to the text decoder
 
 ### Usage 
 ```js 
@@ -148,12 +154,12 @@ const withDecoder = new TextDecoder(label, textOptions).decode(C32.toUint8('AHM6
 ## fromHex & toHex
 Convenience methods that wrap around Uint8Array.fromHex() and uint8.toHex().
 
-fromHex
+### fromHex
 
 Takes in a hex encoded string, decodes it into bytes, and encodes it as a Crockford32 value
  * Uses the same options as fromUint8
 
- toHex
+### toHex
 
  Takes in a Crockford32 encoded value, decodes it into bytes, and encodes them into a hex encoded string
  * Uses the same options as toUint8
@@ -169,7 +175,6 @@ const hexToC32 = C32.fromHex('aabbccddeeff');
 const withEncoder = C32.fromUint8(Uint8Array.fromHex('aabbccddeeff'));
 // 'NAXWSQFEZW'
 
-
 const hexFromC32 = C32.toText('NAXWSQFEZW');
  //'aabbccddeeff'
 
@@ -180,15 +185,15 @@ const withDecoder = C32.toUint8('NAXWSQFEZW').toHex();
 ## fromBase64 & toBase64
 Convenience methods that wrap around Uint8Array.fromBase64() and uint8.toBase64().
 
-fromBase64 
+### fromBase64 
 
 Takes in a base64 encoded string, decodes it into bytes, and encodes it as a Crockford32 value
- * Uses the same options as fromUint8
+ * Uses the same options as fromUint8, plus an optional base64Options object to pass to the encoder
 
- toText
+### toBase64
 
  Takes in a Crockford32 encoded value, decodes it into bytes, and encodes them into a base64 encoded string
- * Uses the same options as toUint8
+ * Uses the same options as toUint8 plus an optional textOptions object to pass to the decoder
 
 ### Usage 
 ```js 
@@ -210,8 +215,6 @@ const textFromC32 = C32.fromBase64(base64string, options, textOptions)
 
 // this is functionally equivilent to 
 const withEncoder = C32.toUint8(Uint8Array.fromHex(base64string, pase64Options), options);
-
-
 
 const base64FromC32 = C32.toText('AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG');
 // 'dGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb2ZlciB0aGUgbGF6eSBkb2cu'
@@ -269,10 +272,11 @@ Generate 26 digit Crockford32 ULID. If repeated subsiquent calls happen with the
 If doing batch jobs, it takes in an options argument
  * if values is an object, passes in the folowing optional parameters:
    - timestamp: optional number to use as millisecond precision timestamp. Current system time is used if ommited
-   - salt: optional BigInt to initialitilize random value before being incremented. Ignored if not paired with a timestamp. 
+   - salt: optional BigInt to initialitilize random value before being incremented. Ignored if not paired with a timestamp or a previous salt has been cached for the specified timestamp
    - isStrict : optional. Defaults to false.
      - If true, increments previous random value by 1 for multiple calls that use the same timestamp
      - If false, increments previous random value by an additional 40 bits of randomness, increasing entropy between values
+   - ttl: optional number in milliseconds to cache the new timestamp/random pair. Defaults to 5000 (5 seconds). Set to 0 to disable caching.
  * if value is String, parsed as a ULID and uses it's timestamp and random bits a seed values,
  * if value is boolean, used as the value for isStrict
 an optional second boolean argument can be used as isStrict if not already passed in by the options argument
@@ -280,6 +284,10 @@ an optional second boolean argument can be used as isStrict if not already passe
 ulidToParts
 Takes in a valid Crockford32 Ulid and return the base elements as an object that can be passed to getUlid as options
 an optional second argument can be used to pass through an isStrict value
+an optional third argument can be used to pass through a ttl value. Negative values are clamped to 0 (no caching). Values above 3600000 (1 hour) are capped. Non-numeric values are ignored.
+
+setDefaultTtl
+Sets the default ttl used by getUlid when no ttl option is provided. This controls how long the previous timestamp/random pair is cached for monotonic generation. Negative values are clamped to 0 (no caching). Values above 3600000 (1 hour) are capped. Non-numeric values are ignored.
 
 ### Usage
 ```js
@@ -298,6 +306,28 @@ const ulid4 = C32.getUlid(true); // "01KXEF3Z0JARRDDKNKZRYQ4S2P" (if still same 
 await doSomethingExpensive();
 // generate a completly new value once the current time ticks forward 
 const ulidNext = C32.getUlid(); // "01KXEF3Z0K2JGD6BR5Y25W4P2F"
+
+// use the ttl option to control how long the timestamp/random pair is cached
+// useful for batch jobs that may take longer than the default 5 seconds
+const ulidBatch1 = C32.getUlid({ timestamp:{timestamp:1783970790418},  ttl: 10000 }); 
+
+// or set a new default ttl for all subsequent calls
+C32.defaultTtl = 30000; // 30 seconds
+const ulidBatch3 = C32.getUlid({timestamp:1783970790418});
+const ulidBatch4 = C32.getUlid({timestamp:1783970790418});
+C32.defaultTtl = 5000; // reset to default
+
+// use ulidToParts to extract the timestamp and seed from a ULID
+const parts = C32.ulidToParts(ulid1); // { timestamp: 175..., salt: 12345n }
+// optionally pass through isStrict and/or ttl values
+const partsWithStrict = C32.ulidToParts(ulid1, { isStrict: true });
+const partsWithTtl = C32.ulidToParts(ulid1, {ttl: 10000});
+const partsWithBoth = C32.ulidToParts(ulid1, { isStrict: true, ttl:10000 });
+const partsWithBool = C32.ulidToParts(ulid1, true); // same as { isStrict: true }
+const partsWithBoolAndNum = C32.ulidToParts(ulid1, true, 10000 ); // same as { isStrict: true, ttl: 10000}
+
+// pass the parts back to getUlid to generate a new ULID with the same timestamp
+const regen = C32.getUlid(parts);
 
 // use ulidToParts to break up a previous ulid into its base parts
 let parts = C32.ulidToParts(ulid4); // {timestamp: 1783970790418, salt: 407024439748536575936204n}
@@ -327,3 +357,131 @@ This provides more entropy between & removes the sequential nature (and guessabi
 During multiple stress tests I was able to create upwards of 5 million unique values with the same (seeded) timestamp. Even though each new ULID increments by a value somewhere between 1 and 1.09+e12, I never risked coming close to reaching the upper bounds. Given that generating ULIDs without seeding never exceeded 400 calls within the same millisecond, this feels like an acceptable compromise.
 
 However, you can use a isStrict flag when generating ULID, if you prefer to stick to the standard.
+
+
+## ULID120 Format
+
+ULID120 is an extension of the standard ULID format that appends an additional 8 characters (40 bits) of cryptographically secure randomness to the standard 26-character ULID.
+
+### Format
+
+```
+ttttttttttrrrrrrrrrrrrrrrrxxxxxxxx
+```
+
+Where:
+- `t` = millisecond precision Unix timestamp (10 characters)
+- `r` = cryptographically secure randomness (16 characters, 80 bits)
+- `x` = additional randomness (8 characters, 40 bits)
+
+### Usage
+
+```js
+// generate a ULID120 with extra randomness
+const ulid120 = C32.getUlid({ extra: true }); // "01KXEF3Z0JARRDDKNKCDSDPHPAXXXXXXXXX"
+
+// or set the default
+C32.defaultAsUlid120 = true;
+const anotherUlid120 = C32.getUlid();
+
+// parse a ULID120
+const parts = C32.ulidToParts(ulid120);
+// { timestamp: 175..., salt: 12345n, extra: 1234567890n }
+```
+
+### When to use ULID120
+
+ULID120 provides additional entropy (120 bits total instead of 80 bits) which reduces the probability of collisions in high-throughput scenarios. Use it when:
+- higher degree of unguessability is required
+- Generating large volumes of IDs in the same millisecond
+- Additional collision resistance is required
+- Working with distributed systems where clock synchronization may vary
+
+### Note
+
+ULID120 is not part of the official ULID specification. It's an extension specific to this library for cases where additional entropy is needed.
+
+## C32.defaultTtl, C32.defaultIsStrict & C32.defaultAsUlid120
+
+Utility functions for managing ULID caching and default time to live.
+
+### defaultTtl
+
+Set or get the default time to live in milliseconds for a timestamp's last generated salt to be cached.
+* non-numeric values, including null & undefined, are ignored
+* negative values are clamped to 0 (no caching)
+  * if caching is disabled, the last used timestamp and salt will still be kept, so subsiquent same timestamp calls work as expected
+* values beyond one hour are clamped, to preserve memory
+
+### defaultIsStrict
+
+Set or get the default isStrict flag for generating Ulids
+* converts non-boolean values to boolean.
+
+### defaultAsUlid120
+
+Set or get the flag for appending an extra 40 bits of randomness to a ULID
+
+## prefillCache, setCacheValue, getCacheValue, hasCacheValue, deleteCacheValue & clearCache
+
+Utility functions for accessing and manipulating the ULID timestamp cache.
+
+### prefillCache
+
+preinsert randomized salts for upcoming timestamps. 
+* takes in the number of future timestamps to prefill. default is 1000
+* sets time to live as defaultTtl plus number of milliseconds from now its set to.
+* Will only prefill if defaultTtl is non-zero.
+* will immediately notify the observeMethod if set
+
+### setCacheValue
+
+manually insert a timestamp and salt into the cache and creates an expiry timer to remove it
+* optionally set a custom time to live for this specific timestamp.
+* overrides and resets the expiry timer if timestamp already set
+* will notify the observeMethod with a "set" cache action record if set.
+* will notify the observeMethod with a "delete" cache action record once the timestamp expires
+
+### getCacheValue
+
+retrieve a cached salt value, if any, saved for a given timestamp
+
+### hasCacheValue
+
+see if a timestamp has a salt value saved in the cache
+* returns a boolean true if a value is cached, false if not
+
+### deleteCacheValue
+
+remove a timestamp and salt from the cache
+* will notify the observeMethod with a "delete" cache action record if set.
+
+## observeCacheUpdates, flushCacheUpdates, getObserveMethod & unobserveCacheUpdates
+
+Utility functions for observing cache changes.
+
+### observeCacheUpdates
+
+Register a callback function to receive cache update notifications. The callback receives an array of action records.
+
+```js
+C32.observeCacheUpdates((records) => {
+  for (const record of records) {
+    console.log(record.action, record.timestamp, record.salt, record.ttl);
+  }
+});
+```
+
+### flushCacheUpdates
+
+Retrieve and clear pending cache update records. Returns an array of action records.
+
+### getObserveMethod
+
+Returns the currently registered observe callback, or `null` if none is set.
+
+### unobserveCacheUpdates
+
+Unregister the observe callback.
+
+
