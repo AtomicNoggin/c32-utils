@@ -5,13 +5,12 @@
 ### Fixed
 - `getRandomChars()` 
   - fixed bug that lowered the frequency of Zeros (especially leading ones)
-cache and longer ULID120 format)
 - `getUlid()` 
   - fixed bug where passing in 0 for timestamp used current time instead
   - fixed bug where passing in 0n for salt generated new random salt instead
 
 ### Added
-- Observable in-memory timestamp cache for ULID generation
+- Observable in-memory timestamp cache for ULID generation cache and longer ULID120 format
 - ULID120 format support (extra 40 bits of randomness)
 - `prefillCache()` for pre-populating future timestamp cache entries
 - `setCacheValue()`, `getCacheValue()`, `hasCacheValue()`, `deleteCacheValue()`, `clearCache()` for cache management
